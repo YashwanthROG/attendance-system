@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        .student-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .student-card {
+            background-color: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            width: 200px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .student-name, .student-reg {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .student-name strong, .student-reg strong {
+            color: #333;
+        }
+
+        .attendance-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .attendance-button {
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: none;
+            font-size: 18px;
+            transition: opacity 0.3s;
+        }
+
+        .present {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .absent {
+            background-color: #f44336;
+            color: white;
+        }
+
+        .attendance-button.selected {
+            opacity: 0.5;
+        }
+
+        #submit-attendance {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        #submit-attendance:hover {
+            background-color: #0b7dda;
+        }
+
+        #logout {
+            display: block;
+            width: fit-content;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: red;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .date-selector {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .date-selector input {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Admin Dashboard</h1>
+        <button id="logout" onclick="logout()">Logout</button>
+        
+        <div class="date-selector">
+            <label for="attendance-date">Select Date: </label>
+            <input type="date" id="attendance-date" value="">
+        </div>
+        
+        <div class="student-list" id="studentList">
+            <!-- Students will be added here dynamically -->
+        </div>
+        
+        <button id="submit-attendance" onclick="submitAttendance()">Submit Attendance</button>
+    </div>
+
+    <script>
+        // Set today's date as default
+        document.getElementById('attendance-date').valueAsDate = new Date();
+        
+        // Ensure admin is logged in
+        if (localStorage.getItem("adminLoggedIn") !== "true") {
+            alert("Unauthorized access! Please log in.");
+            window.location.href = "login.html";
+        }
+
+        const dbName = "AttendanceDB";
+        const dbVersion = 2; // Increased version to handle schema updates
+        let db;
+
+        // Open IndexedDB with updated schema
+        const request = indexedDB.open(dbName, dbVersion);
+
+        request.onupgradeneeded = function(event) {
+            const db = event.target.result;
+            
+            // Create students store if it doesn't exist
+            if (!db.objectStoreNames.contains("students")) {
+                db.createObjectStore("students", { keyPath: "regNumber" });
+            }
+            
+            // Create attendance store if it doesn't exist
+            if (!db.objectStoreNames.contains("attendance")) {
+                const attendanceStore = db.createObjectStore("attendance", { keyPath: "id", autoIncrement: true });
+                attendanceStore.createIndex("date_student", ["date", "regNumber"], { unique: true });
+                attendanceStore.createIndex("date", "date", { unique: false });
+                attendanceStore.createIndex("regNumber", "regNumber", { unique: false });
+            }
+        };
+
+        request.onsuccess = function (event) {
+            db = event.target.result;
+            loadStudents();
+        };
+
+        request.onerror = function () {
+            console.error("IndexedDB error", request.error);
+        };
+
+        function loadStudents() {
+            if (!db) {
+                console.error("Database not initialized");
+                return;
+            }
+
+            const transaction = db.transaction("students", "readonly");
+            const store = transaction.objectStore("students");
+            const studentListDiv = document.getElementById("studentList");
+            studentListDiv.innerHTML = "";
+
+            const cursorRequest = store.openCursor();
+            let found = false; // Flag to check if any students exist
+
+            cursorRequest.onsuccess = function (event) {
+                const cursor = event.target.result;
+                if (cursor) {
+                    found = true;
+                    const student = cursor.value;
+                    console.log("Loaded Student:", student); // Debugging log
+                    
+                    const studentCard = document.createElement("div");
+                    studentCard.classList.add("student-card");
+                    studentCard.dataset.regNumber = student.regNumber;
+                    
+                    studentCard.innerHTML = `
+                        <div class="student-name"><strong>Name:</strong> ${student.studentName}</div>
+                        <div class="student-reg"><strong>Reg No:</strong> ${student.regNumber}</div>
+                        <div class="attendance-buttons">
+                            <button class="attendance-button present" onclick="markAttendance(this, '${student.regNumber}', true)">✓</button>
+                            <button class="attendance-button absent" onclick="markAttendance(this, '${student.regNumber}', false)">✗</button>
+                        </div>
+                    `;
+                    
+                    studentCard.onclick = function(e) {
+                        // Only navigate to details if not clicking attendance buttons
+                        if (!e.target.classList.contains('attendance-button')) {
+                            localStorage.setItem("selectedStudent", JSON.stringify(student));
+                            window.location.href = "student_details.html";
+                        }
+                    };
+                    
+                    studentListDiv.appendChild(studentCard);
+                    cursor.continue();
+                }
+            };
+
+            cursorRequest.onerror = function () {
+                console.error("Error reading IndexedDB.");
+            };
+
+            transaction.oncomplete = function () {
+                if (!found) {
+                    console.warn("No students found in IndexedDB.");
+                    studentListDiv.innerHTML = "<p>No students available.</p>";
+                }
+            };
+        }
+
+        function markAttendance(button, regNumber, isPresent) {
+            // Find the parent card
+            const card = button.closest('.student-card');
+            
+            // Remove selected class from both buttons
+            const buttons = card.querySelectorAll('.attendance-button');
+            buttons.forEach(btn => btn.classList.remove('selected'));
+            
+            // Add selected class to clicked button
+            button.classList.add('selected');
+            
+            // Store attendance data in the card's dataset
+            card.dataset.attendance = isPresent ? 'present' : 'absent';
+            
+            console.log(`Marked ${regNumber} as ${isPresent ? 'present' : 'absent'}`);
+        }
+
+        function submitAttendance() {
+            if (!db) {
+                console.error("Database not initialized");
+                return;
+            }
+            
+            const selectedDate = document.getElementById('attendance-date').value;
+            if (!selectedDate) {
+                alert("Please select a date for attendance.");
+                return;
+            }
+            
+            const studentCards = document.querySelectorAll('.student-card');
+            const attendanceData = [];
+            
+            let allMarked = true;
+            
+            // Collect attendance data
+            studentCards.forEach(card => {
+                const regNumber = card.dataset.regNumber;
+                const attendance = card.dataset.attendance;
+                
+                if (!attendance) {
+                    allMarked = false;
+                    return;
+                }
+                
+                attendanceData.push({
+                    regNumber: regNumber,
+                    date: selectedDate,
+                    present: attendance === 'present',
+                    timestamp: new Date().toISOString()
+                });
+            });
+            
+            if (!allMarked) {
+                alert("Please mark attendance for all students.");
+                return;
+            }
+            
+            // Save attendance to IndexedDB
+            const transaction = db.transaction("attendance", "readwrite");
+            const store = transaction.objectStore("attendance");
+            
+            // Check if attendance already exists for this date
+            const dateIndex = store.index("date");
+            const dateRequest = dateIndex.getAll(selectedDate);
+            
+            dateRequest.onsuccess = function() {
+                const existingRecords = dateRequest.result;
+                const existingRegNumbers = existingRecords.map(record => record.regNumber);
+                
+                // Add attendance records
+                attendanceData.forEach(data => {
+                    // If record already exists for this student on this date, update it
+                    if (existingRegNumbers.includes(data.regNumber)) {
+                        const record = existingRecords.find(r => r.regNumber === data.regNumber);
+                        record.present = data.present;
+                        record.timestamp = data.timestamp;
+                        store.put(record);
+                    } else {
+                        // Otherwise add new record
+                        store.add(data);
+                    }
+                });
+            };
+            
+            transaction.oncomplete = function() {
+                alert("Attendance has been recorded successfully!");
+                // Reset attendance UI
+                studentCards.forEach(card => {
+                    const buttons = card.querySelectorAll('.attendance-button');
+                    buttons.forEach(btn => btn.classList.remove('selected'));
+                    delete card.dataset.attendance;
+                });
+            };
+            
+            transaction.onerror = function() {
+                console.error("Error saving attendance", transaction.error);
+                alert("Error saving attendance. Please try again.");
+            };
+        }
+
+        function logout() {
+            localStorage.removeItem("adminLoggedIn");
+            window.location.href = "login.html";
+        }
+    </script>
+</body>
+</html>

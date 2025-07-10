@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login Page</title>
+    <link rel="stylesheet" href="reg2.css" />
+  </head>
+  <body>
+    <div class="login-container">
+      <h1>Welcome to Student Project Attendance System</h1>
+      <div class="login-options">
+        <a href="student_login.html">
+          <button>Student Login</button>
+        </a>
+        <button onclick="showAdminLogin()">Admin Login</button>
+      </div>
+
+      <!-- Admin Login Popup -->
+      <div id="adminLoginPopup" class="popup">
+        <h2>Admin Login</h2>
+        <form id="adminLoginForm" onsubmit="loginAdmin(event)">
+          <label for="adminUsername">Username</label>
+          <input type="text" id="adminUsername" required />
+          <label for="adminPassword">Password</label>
+          <input type="password" id="adminPassword" required />
+          <button type="submit">Login</button>
+          <button type="button" onclick="hideAdminLogin()">Cancel</button>
+        </form>
+      </div>
+    </div>
+
+    <script src="static/reg2.js"></script>
+    <script>
+function showAdminLogin() {
+  const popup = document.getElementById("adminLoginPopup");
+  popup.style.display = "block";
+  setTimeout(() => {
+    popup.classList.add("active");
+  }, 10); // Small delay to trigger transition
+}
+
+function hideAdminLogin() {
+  const popup = document.getElementById("adminLoginPopup");
+  popup.classList.remove("active");
+  setTimeout(() => {
+    popup.style.display = "none";
+  }, 300); // Delay to match transition
+}
+const dbName = "AttendanceSystemDB";
+const dbVersion = 1;
+let db;
+
+const request = indexedDB.open(dbName, dbVersion);
+
+request.onupgradeneeded = function (event) {
+    db = event.target.result;
+    if (!db.objectStoreNames.contains("admins")) {
+        const adminStore = db.createObjectStore("admins", { keyPath: "username" });
+        adminStore.transaction.oncomplete = function () {
+            const adminObjectStore = db.transaction("admins", "readwrite").objectStore("admins");
+            adminObjectStore.add({ username: "admin", password: "12345" }); // Default Admin
+        };
+    }
+};
+
+request.onsuccess = function (event) {
+    db = event.target.result;
+};
+
+request.onerror = function () {
+    console.error("IndexedDB initialization failed");
+};
+request.onsuccess = function (event) {
+    db = event.target.result;
+    console.log("IndexedDB initialized successfully");
+};
+
+
+// Admin Login Function
+function loginAdmin(event) {
+    event.preventDefault();
+    
+    if (!db) {
+        alert("Database not initialized. Please reload the page.");
+        return;
+    }
+
+    const username = document.getElementById("adminUsername").value;
+    const password = document.getElementById("adminPassword").value;
+
+    const transaction = db.transaction("admins", "readonly");
+    const store = transaction.objectStore("admins");
+    const getRequest = store.get(username);
+
+    getRequest.onsuccess = function () {
+        if (getRequest.result && getRequest.result.password === password) {
+            alert("Login Successful!");
+            localStorage.setItem("adminLoggedIn", "true"); 
+            
+            // Delay navigation slightly to ensure `localStorage` is set
+            setTimeout(() => {
+                window.location.href = "dashboard.html";
+            }, 500);
+        } else {
+            alert("Invalid Username or Password");
+        }
+    };
+
+    getRequest.onerror = function () {
+        alert("Error retrieving admin data");
+    };
+}
+
+    </script>
+  </body>
+</html>

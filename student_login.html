@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Project Attendance Register</title>
+    <link rel="stylesheet" href="reg.css" />
+    
+</head>
+<body>
+    <div class="header">
+        <img src="main logo.png" alt="Logo">
+        <h1>Student Project Attendance Register</h1>
+    </div>
+    <div class="container">
+        <form id="attendanceForm">
+            <!-- Row 1 -->
+            <div class="form-row">
+                <div class="form-column">
+                    <label for="studentName">Student Name</label>
+                    <input type="text" id="studentName" name="studentName" required>
+                </div>
+                <div class="form-column">
+                    <label for="regNumber">Reg Number</label>
+                    <input type="text" id="regNumber" name="regNumber" required>
+                </div>
+                <div class="form-column">
+                    <label for="mobileNumber">Mobile Number</label>
+                    <input type="text" id="mobileNumber" name="mobileNumber" required>
+                </div>
+                <div class="form-column photo-upload">
+                    <label for="photo">Upload Photo</label>
+                    <input type="file" id="photo" name="photo" accept="image/*" onchange="previewPhoto(event)">
+                    <div class="photo-preview" id="photoPreview">
+                        <img id="previewImage" src="#" alt="Photo Preview">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 2 -->
+            <div class="form-row">
+                <div class="form-column">
+                    <label for="collegeName">Name of the College</label>
+                    <input type="text" id="collegeName" name="collegeName" required>
+                </div>
+                <div class="form-column">
+                    <label for="collegeAddress">Address of the College</label>
+                    <input type="text" id="collegeAddress" name="collegeAddress" required>
+                </div>
+                <div class="form-column">
+                    <label for="courseDepartment">Course and Department</label>
+                    <input type="text" id="courseDepartment" name="courseDepartment" required>
+                </div>
+            </div>
+
+            <!-- Row 3 -->
+            <div class="form-row">
+                <div class="form-column">
+                    <label for="semester">Semester</label>
+                    <select id="semester" name="semester" required>
+                        <option value="" disabled selected>Select Semester</option>
+                        <option value="1">Semester 1</option>
+                        <option value="2">Semester 2</option>
+                        <option value="3">Semester 3</option>
+                        <option value="4">Semester 4</option>
+                        <option value="5">Semester 5</option>
+                        <option value="6">Semester 6</option>
+                        <option value="7">Semester 7</option>
+                        <option value="8">Semester 8</option>
+                    </select>
+                </div>
+            </div>
+            
+                <div class="form-column">
+                    <label for="projectTitle">Project Title</label>
+                    <input type="text" id="projectTitle" name="projectTitle" required>
+                </div>
+                <div class="form-column">
+                    <label for="duration">Duration</label>
+                    <input type="text" id="duration" name="duration" required>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="submit-button">
+                <button type="submit">Submit</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Popup Message -->
+    <div id="popup" class="popup">
+        <p>Your submission has been recorded!</p>
+    </div>
+
+    <script>
+
+
+        let db;
+
+        document.addEventListener("DOMContentLoaded", function () {
+    const dbName = "AttendanceDB";
+    const dbVersion = 1;
+
+    if (db) {
+        db.close();
+        console.log("Closed previous database instance.");
+    }
+
+    const request = indexedDB.open("AttendanceDB", 2); 
+
+    request.onupgradeneeded = function (event) {
+        db = event.target.result;
+        if (!db.objectStoreNames.contains("students")) {
+            db.createObjectStore("students", { keyPath: "regNumber" });
+        }
+    };
+
+    request.onsuccess = function (event) {
+        db = event.target.result;
+        console.log("Database initialized successfully.");
+
+        // ✅ Add event listener to the submit button
+        document.getElementById("attendanceForm").addEventListener("submit", handleFormSubmit);
+    };
+
+    request.onerror = function (event) {
+        console.error("Error initializing database:", event.target.error);
+    };
+});
+
+
+
+
+// Move form submission logic into a separate function
+function handleFormSubmit(event) {
+    event.preventDefault(); // Prevent default form submission
+
+    if (!db) {
+        console.log("Database is still initializing. Please try again in a moment.");
+        setTimeout(() => handleFormSubmit(event), 500); // Retry after 500ms
+        return;
+    }
+
+    const student = {
+        studentName: document.getElementById("studentName").value,
+        regNumber: document.getElementById("regNumber").value,
+        mobileNumber: document.getElementById("mobileNumber").value,
+        collegeName: document.getElementById("collegeName").value,
+        collegeAddress: document.getElementById("collegeAddress").value,
+        courseDepartment: document.getElementById("courseDepartment").value,
+        semester: document.getElementById("semester").value,
+        projectTitle: document.getElementById("projectTitle").value,
+        duration: document.getElementById("duration").value
+    };
+
+    const photoInput = document.getElementById("photo");
+    if (photoInput.files.length > 0) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            student.photo = e.target.result; // Store Base64 image
+            saveToIndexedDB(student);
+        };
+        reader.readAsDataURL(photoInput.files[0]); // Convert to Base64
+    } else {
+        student.photo = null;
+        saveToIndexedDB(student);
+    }
+}
+
+
+function saveToIndexedDB(student) {
+    if (!db) {
+        alert("Database is still initializing. Please try again in a moment.");
+        return;
+    }
+
+    const transaction = db.transaction("students", "readwrite");
+    const store = transaction.objectStore("students");
+
+    const addRequest = store.add(student);
+
+    addRequest.onsuccess = function () {
+        console.log("Student data saved successfully:", student);
+        showPopup();
+        document.getElementById("attendanceForm").reset();
+        document.getElementById("previewImage").src = "#";
+        document.getElementById("previewImage").style.display = "none";
+    };
+
+    addRequest.onerror = function (event) {
+        console.error("Error saving student data:", event.target.error);
+        alert("Failed to save student data. Error: " + event.target.error);
+    };
+
+    transaction.oncomplete = function () {
+        console.log("Transaction completed successfully.");
+    };
+
+    transaction.onerror = function (event) {
+        console.error("Transaction failed:", event.target.error);
+    };
+    }
+
+
+
+    // Show Popup
+    function showPopup() {
+        const popup = document.getElementById("popup");
+        popup.style.display = "block";
+        setTimeout(() => {
+            popup.style.display = "none";
+        }, 2000);
+    }
+
+// Photo Preview Function
+function previewPhoto(event) {
+    const input = event.target;
+    const previewImage = document.getElementById("previewImage");
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            previewImage.src = e.target.result;
+            previewImage.style.display = "block";
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+        // Form Submission and Popup
+    </script>
+</body>
+</html>
+
+

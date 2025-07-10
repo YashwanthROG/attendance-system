@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        .student-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .student-card {
+            background-color: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            width: 200px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .student-name, .student-reg {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .student-name strong, .student-reg strong {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Student Dashboard</h1>
+
+        <!-- Create a div for each student -->
+        <div class="student-list">
+            {% for student in students %}
+                <div class="student-card">
+                    <div class="student-name">
+                        <strong>Student Name:</strong> 
+                        <a href="{{ url_for('student_profile', reg_number=student[1]) }}">
+                            {{ student[0] }}
+                        </a>
+                    </div>
+                    <div class="student-reg">
+                        <strong>Registration Number:</strong>
+                        <a href="{{ url_for('student_profile', reg_number=student[1]) }}">
+                            {{ student[1] }}
+                        </a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        
+    </div>
+</body>
+</html>
